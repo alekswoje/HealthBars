@@ -139,7 +139,6 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
         if (healthBar.Life == null) return true;
         if (!healthBar.Entity.IsAlive) return true;
         if (healthBar.HpPercent < 0.001f) return true;
-        if (healthBar.Type == CreatureType.Minion && healthBar.HpPercent * 100 > Settings.ShowMinionOnlyWhenBelowHp) return true;
         if (healthBar.Entity.League == LeagueType.Legion &&
             healthBar.Entity.IsHidden &&
             (healthBar.Entity.Rarity == MonsterRarity.Unique && !Settings.LegionSettings.ShowHiddenUniqueMonsters ||
@@ -157,6 +156,11 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
         if (healthBar.Skip && !ShowInBossOverlay(healthBar)) return;
 
         healthBar.CheckUpdate();
+        if (healthBar.Type == CreatureType.Minion && healthBar.HpPercent * 100 > Settings.ShowMinionOnlyWhenBelowHp && !ShowInBossOverlay(healthBar))
+        {
+            healthBar.Skip = true;
+            return;
+        }
 
         var worldCoords = healthBar.Entity.PosNum;
         if (!Settings.PlaceBarRelativeToGroundLevel)
