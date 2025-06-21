@@ -134,7 +134,6 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
 
     private bool SkipHealthBar(HealthBar healthBar, bool checkDistance)
     {
-        if (healthBar.Settings?.Show != true) return true;
         if (checkDistance && healthBar.Distance > Settings.DrawDistanceLimit) return true;
         if (healthBar.Life == null) return true;
         if (!healthBar.Entity.IsAlive) return true;
@@ -156,7 +155,9 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
         if (healthBar.Skip && !ShowInBossOverlay(healthBar)) return;
 
         healthBar.CheckUpdate();
-        if (healthBar.Type == CreatureType.Minion && healthBar.HpPercent * 100 > Settings.ShowMinionOnlyWhenBelowHp && !ShowInBossOverlay(healthBar))
+        if ((healthBar.Settings?.Show != true ||
+             healthBar.Type == CreatureType.Minion && healthBar.HpPercent * 100 > Settings.ShowMinionOnlyWhenBelowHp) &&
+            !ShowInBossOverlay(healthBar))
         {
             healthBar.Skip = true;
             return;
