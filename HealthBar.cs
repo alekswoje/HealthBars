@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Numerics;
 using System.Threading;
+using ExileCore;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared.Cache;
@@ -17,12 +20,16 @@ public class HealthBar
     private readonly Stopwatch _dpsStopwatch = Stopwatch.StartNew();
     private bool _isHostile;
     private readonly CachedValue<float> _distanceCache;
+    private readonly CachedValue<int> _tormentedSpiritCount;
+    private readonly GameController _gameController;
 
-    public HealthBar(Entity entity, HealthBarsSettings settings)
+    public HealthBar(Entity entity, HealthBarsSettings settings, GameController gameController)
     {
         Entity = entity;
         AllSettings = settings;
+        _gameController = gameController;
         _distanceCache = new TimeCache<float>(() => entity.DistancePlayer, 200);
+        _tormentedSpiritCount = new TimeCache<int>(() => GetTormentedSpiritCount(), 500);
         Update();
     }
 
@@ -70,17 +77,62 @@ public class HealthBar
     public int MaxEhp => Life.MaxHP + Life.MaxES;
     public readonly Queue<(DateTime Time, int Value)> EhpHistory = new Queue<(DateTime, int)>();
 
+    public int TormentedSpiritCount => _tormentedSpiritCount.Value;
+
     public Color Color
     {
         get
         {
-            if (IsHidden(Entity))
+            var isHidden = IsHidden(Entity);
+            
+            // Check if this is a tormented rare (Rare monster with nearby Daemon entities)
+            // Check this BEFORE the hidden check so tormented rares get highlighted even when hidden
+            if (AllSettings.LegionSettings.HighlightTormentedRares.Value && Type == CreatureType.Rare)
+            {
+                var spiritCount = TormentedSpiritCount;
+                if (spiritCount > 0)
+                {
+                    return AllSettings.LegionSettings.TormentedRareColor.Value;
+                }
+            }
+
+            if (isHidden)
                 return Color.LightGray;
 
             if (HpPercent * 100 <= AllSettings.CullPercent)
                 return Settings.CullableColor;
 
-            return Settings.LifeColor;
+            return Settings.LifeColor.Value;
+        }
+    }
+
+    private int GetTormentedSpiritCount()
+    {
+        try
+        {
+            // Only check for rare monsters
+            if (Type != CreatureType.Rare || _gameController == null)
+                return 0;
+
+            var monsterPos = Entity.PosNum;
+            var maxDistance = AllSettings.LegionSettings.TormentedSpiritDetectionRange.Value;
+
+            var daemonCount = _gameController.EntityListWrapper.ValidEntitiesByType[EntityType.Daemon]
+                .Count(daemon =>
+                {
+                    if (daemon == null || !daemon.IsValid)
+                        return false;
+
+                    var diff = monsterPos - daemon.PosNum;
+                    var distance = (float)Math.Sqrt(diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z);
+                    return distance <= maxDistance;
+                });
+
+            return daemonCount;
+        }
+        catch
+        {
+            return 0;
         }
     }
 

@@ -202,8 +202,9 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
             return null;
         }
 
-        if (Settings.MultiThreading && GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Monster].Count >=
-            Settings.MinimumEntitiesForMultithreading)
+        var entityCount = GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Monster].Count +
+                          GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Daemon].Count;
+        if (Settings.MultiThreading && entityCount >= Settings.MinimumEntitiesForMultithreading)
         {
             return new Job(nameof(HealthBars), TickLogic);
         }
@@ -215,7 +216,8 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
     private void TickLogic()
     {
         foreach (var validEntity in GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Monster]
-                     .Concat(GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Player]))
+                     .Concat(GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Player])
+                     .Concat(GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Daemon]))
         {
             var healthBar = validEntity.GetHudComponent<HealthBar>();
             if (healthBar == null) continue;
@@ -289,7 +291,8 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
         if (!_canTick) return;
         var bossOverlayItems = new List<HealthBar>();
         foreach (var entity in GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Monster]
-                     .Concat(GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Player]))
+                     .Concat(GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Player])
+                     .Concat(GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Daemon]))
         {
             if (entity.GetHudComponent<HealthBar>() is not { } healthBar)
             {
@@ -433,6 +436,15 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
         {
             ShowDps(bar, alphaMulti, barArea);
         }
+        
+        // Show spirit count for tormented rares
+        if (Settings.LegionSettings.HighlightTormentedRares.Value && 
+            Settings.LegionSettings.ShowSpiritCount.Value &&
+            bar.Type == CreatureType.Rare && 
+            bar.TormentedSpiritCount > 0)
+        {
+            ShowSpiritCount(bar, alphaMulti, barArea);
+        }
     }
 
     private static float GetAlphaMulti(HealthBar bar, RectangleF barArea)
@@ -472,6 +484,23 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
         Graphics.DrawText(dpsText, textCenter - textArea / 2, damageColor.MultiplyAlpha(alphaMulti));
     }
 
+    private void ShowSpiritCount(HealthBar bar, float alphaMulti, RectangleF area)
+    {
+        const int margin = 2;
+        var spiritCount = bar.TormentedSpiritCount;
+        if (spiritCount <= 0) return;
+
+        var spiritText = $"{spiritCount} spirits";
+        var textArea = Graphics.MeasureText(spiritText);
+        
+        // Position below the health bar, or to the right if DPS is shown
+        var yOffset = bar.Settings.ShowDps ? textArea.Y + margin * 2 : margin;
+        var textCenter = new Vector2(area.Center.X, area.Bottom + textArea.Y / 2 + yOffset);
+        
+        Graphics.DrawBox(textCenter - textArea / 2, textCenter + textArea / 2, bar.Settings.TextBackground.MultiplyAlpha(alphaMulti));
+        Graphics.DrawText(spiritText, textCenter - textArea / 2, Settings.LegionSettings.TormentedRareColor.Value.MultiplyAlpha(alphaMulti));
+    }
+
     private void ShowHealthbarText(HealthBar bar, string text, float alphaMulti, RectangleF area)
     {
         if (text != null)
@@ -505,7 +534,8 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
             .Replace("{current}", bar.CurrentEhp.FormatHp())
             .Replace("{total}", bar.MaxEhp.FormatHp())
             .Replace("{currentes}", bar.Life.CurES.FormatHp())
-            .Replace("{currentlife}", bar.Life.CurHP.FormatHp());
+            .Replace("{currentlife}", bar.Life.CurHP.FormatHp())
+            .Replace("{spirits}", bar.TormentedSpiritCount.ToString());
     }
 
     private static readonly HashSet<string> DangerousStages = new HashSet<string>
@@ -613,14 +643,14 @@ public class HealthBars : BaseSettingsPlugin<HealthBarsSettings>
 
     public override void EntityAdded(Entity entity)
     {
-        if (entity.Type != EntityType.Monster && entity.Type != EntityType.Player ||
+        if (entity.Type != EntityType.Monster && entity.Type != EntityType.Player && entity.Type != EntityType.Daemon ||
             entity.GetComponent<Life>() != null && !entity.IsAlive ||
             FindRule(entity.Path).Ignore == true)
         {
             return;
         }
 
-        var healthBar = new HealthBar(entity, Settings);
+        var healthBar = new HealthBar(entity, Settings, GameController);
         entity.SetHudComponent(healthBar);
         if (entity.Address == GameController.Player.Address)
         {

@@ -154,9 +154,11 @@ public class UnitSettings
         "{current} - current HP (Life + ES) value\n" +
         "{total} - total HP (Life + ES)\n" +
         "{currentes} - current ES\n" +
-        "{currentlife} - current Life\n\n" +
+        "{currentlife} - current Life\n" +
+        "{spirits} - number of tormented spirits (for tormented rares)\n\n" +
         "Example:\n" +
-        "{percent}% {current}/{total} -> 50% 5.00K/10.0K")]
+        "{percent}% {current}/{total} -> 50% 5.00K/10.0K\n" +
+        "{percent}% ({spirits} spirits) -> 50% (3 spirits)")]
     public TextNode TextFormat { get; set; } = "{percent}% {current}/{total}";
 
     public CastBarSettings CastBarSettings { get; set; } = new();
@@ -208,4 +210,8 @@ public class LegionSettings
     public ToggleNode ShowHiddenNormalAndMagicMonsters { get; set; } = new ToggleNode(false);
     public ToggleNode ShowHiddenRareMonsters { get; set; } = new ToggleNode(true);
     public ToggleNode ShowHiddenUniqueMonsters { get; set; } = new ToggleNode(true);
+    public ToggleNode HighlightTormentedRares { get; set; } = new ToggleNode(true);
+    public ColorNode TormentedRareColor { get; set; } = Extensions.FromHex(0xff00ff);
+    public RangeNode<float> TormentedSpiritDetectionRange { get; set; } = new RangeNode<float>(10f, 5f, 50f);
+    public ToggleNode ShowSpiritCount { get; set; } = new ToggleNode(true);
 }
