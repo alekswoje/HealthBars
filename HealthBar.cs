@@ -123,6 +123,15 @@ public class HealthBar
                     if (daemon == null || !daemon.IsValid)
                         return false;
 
+                    // Check if this is a tormented spirit daemon (must have "Torment" in path or metadata)
+                    var path = daemon.Path ?? string.Empty;
+                    var metadata = daemon.Metadata ?? string.Empty;
+                    var isTormentedSpirit = path.Contains("Torment", StringComparison.OrdinalIgnoreCase) ||
+                                           metadata.Contains("Torment", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (!isTormentedSpirit)
+                        return false;
+
                     var diff = monsterPos - daemon.PosNum;
                     var distance = (float)Math.Sqrt(diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z);
                     return distance <= maxDistance;
